@@ -1,5 +1,6 @@
 import logging
-import time
+import signal
+from threading import Event
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -69,13 +70,25 @@ def dispatch_once() -> int:
 def run_dispatcher() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
+    stop_event = Event()
+
+    def request_stop(signum, _frame) -> None:
+        logger.info(
+            "dispatcher shutdown requested",
+            extra={"event": "outbox.dispatcher_shutdown_requested", "signal": signum},
+        )
+        stop_event.set()
+
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
     logger.info("outbox dispatcher started", extra={"event": "outbox.dispatcher_started"})
-    while True:
+    while not stop_event.is_set():
         try:
             dispatch_once()
         except Exception:
             logger.exception("dispatcher loop failed", extra={"event": "outbox.dispatcher_failed"})
-        time.sleep(settings.outbox_dispatch_interval_seconds)
+        stop_event.wait(settings.outbox_dispatch_interval_seconds)
+    logger.info("outbox dispatcher stopped", extra={"event": "outbox.dispatcher_stopped"})
 
 
 if __name__ == "__main__":

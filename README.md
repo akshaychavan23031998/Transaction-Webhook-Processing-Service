@@ -6,13 +6,13 @@ This service accepts transaction webhooks, durably records them, and processes t
 
 Fast webhook acknowledgement matters because payment providers retry slow or lost requests. Duplicate deliveries are normal, so repeated submissions must be safe. Durable persistence matters because accepted work must survive API, broker, dispatcher, and worker restarts. This design addresses those requirements with a transactional outbox, database-enforced idempotency, worker leases, and stale-worker fencing.
 
-This repository implements the local Senior Full Stack Developer transaction-webhook assessment. GitHub publication and cloud deployment were intentionally not performed.
+This repository implements the Senior Full Stack Developer transaction-webhook assessment. The personal GitHub repository is [Transaction-Webhook-Processing-Service](https://github.com/akshaychavan23031998/Transaction-Webhook-Processing-Service); Vercel cloud deployment is prepared but not yet claimed as successful.
 
 ## Status at a glance
 
 Local verification was completed on **2026-10-20**. The final Compose stack passed the recorded API, end-to-end, concurrency, persistence, recovery, lint, migration, and benchmark checks in [docs/VERIFICATION_REPORT.md](docs/VERIFICATION_REPORT.md).
 
-The remaining local development gaps are in [docs/PENDING_TASKS.md](docs/PENDING_TASKS.md). GitHub publication and cloud deployment are deferred external deliverables, not local application defects.
+The remaining local development gaps are in [docs/PENDING_TASKS.md](docs/PENDING_TASKS.md). GitHub publication is complete; Vercel deployment and provider resource setup still require manual verification.
 
 ## Table of contents
 
@@ -25,6 +25,7 @@ The remaining local development gaps are in [docs/PENDING_TASKS.md](docs/PENDING
 - [API reference](#api-reference)
 - [Automated testing](#automated-testing)
 - [Verified performance](#verified-performance)
+- [Vercel Hobby deployment](#vercel-hobby-deployment)
 - [Reliability evidence](#reliability-evidence)
 - [Observability and operations](#observability-and-operations)
 - [Security considerations](#security-considerations)
@@ -50,7 +51,7 @@ Implemented and locally verified:
 - Alembic migration checks, pytest coverage, Ruff checks, E2E, concurrency, and benchmark scripts.
 - Local Redis, PostgreSQL, API, dispatcher, worker-crash, and lease-recovery verification.
 
-The current local gaps are a repeatable automated live-failure suite and provider-specific HMAC verification once the real provider contract is supplied. GitHub publishing and cloud deployment remain outside this scope.
+The current local gaps are a repeatable automated live-failure suite and provider-specific HMAC verification once the real provider contract is supplied. Vercel deployment remains an unverified manual delivery step.
 
 ## Assignment requirements and compliance
 
@@ -68,8 +69,8 @@ The current local gaps are a repeatable automated live-failure suite and provide
 | Concurrency | Protect requests and worker claims | Locks, skip-locked claims, tokens | 20 duplicate and 50 unique requests | **Verified** |
 | Error handling | Useful validation, conflict, dependency responses | 409/422/503 handling and retries | API and recovery checks | **Verified** |
 | Crash recovery | Resume incomplete work | Outbox retry and lease-expiry sweep | Dependency and process drills | **Verified locally** |
-| GitHub repository | Publish assessment repository | Not performed | Explicitly excluded | **Deferred** |
-| Cloud deployment | Deploy public service | No cloud resources created | Explicitly excluded | **Deferred** |
+| GitHub repository | Publish assessment repository | Personal repository exists at the linked GitHub URL | Remote publication is a separate handoff concern | **Published** |
+| Cloud deployment | Deploy public service | Vercel configuration is prepared; no cloud deployment was run by this audit | Requires manual Vercel/provider setup and verification | **Pending** |
 
 ## Architecture
 
@@ -146,12 +147,13 @@ This tree reflects the implemented project; package initializers and generated c
 │   ├── services/transaction_service.py
 │   └── workers/{celery_app.py,dispatcher.py,tasks.py}
 ├── alembic/versions/0001_initial.py
-├── docs/{VERIFICATION_REPORT.md,PENDING_TASKS.md,deployment.md}
+├── docs/{VERIFICATION_REPORT.md,PENDING_TASKS.md,deployment.md,VERCEL_DEPLOYMENT_GUIDE.md}
 ├── docs/images/webhook-latency-comparison.svg
 ├── scripts/{benchmark_webhooks.py,concurrent_duplicate_test.py,e2e_test.py}
 ├── tests/{unit,integration}
 ├── .env.example
 ├── .github/workflows/ci.yml
+├── vercel.json
 ├── alembic.ini
 ├── docker-compose.yml
 ├── Dockerfile
@@ -740,6 +742,33 @@ The E2E script posts a fresh transaction, observes acceptance and status, polls 
 
 The checked-in GitHub Actions workflow runs Ruff, formatting checks, Alembic migration setup, and pytest with PostgreSQL and Redis service containers. Its hosted execution was not run during this local audit; equivalent local checks passed and the workflow was inspected.
 
+## Vercel Hobby deployment
+
+The repository now contains a Vercel-compatible deployment shape without changing the public API or the transaction/outbox business flow. See the complete manual procedure in [docs/VERCEL_DEPLOYMENT_GUIDE.md](docs/VERCEL_DEPLOYMENT_GUIDE.md).
+
+The current Vercel design is:
+
+- Vercel detects the existing FastAPI instance at `app/main.py`; `pyproject.toml` also declares the explicit `app.main:app` entrypoint.
+- `vercel.json` declares one `celery-worker` daemon and one `outbox-dispatcher` daemon.
+- Both daemons use the repository root and the existing `Dockerfile`, so the image contains the shared `app/` package, Alembic files, and pinned dependencies.
+- The worker runs with concurrency 1 and keeps the existing late acknowledgement, retry, lease, and fencing behavior.
+- The dispatcher remains a continuously running process; a Hobby Cron Job is not used as a replacement.
+- The API uses a small configurable SQLAlchemy pool for serverless instances. Set `DATABASE_POOL_SIZE=1` and `DATABASE_MAX_OVERFLOW=0` for Vercel.
+- `REDIS_URL` remains both the Celery broker and result backend. For a hosted Redis service, use its TLS TCP URL (`rediss://`), not a REST URL.
+
+~~~mermaid
+flowchart LR
+    Client[Webhook sender] --> Function[Vercel FastAPI Function]
+    Function -->|atomic write| Postgres[(External PostgreSQL)]
+    Postgres --> Dispatcher[Vercel outbox-dispatcher daemon]
+    Dispatcher -->|TLS Redis protocol| Redis[(External Redis)]
+    Redis --> Worker[Vercel celery-worker daemon]
+    Worker -->|lease and fencing update| Postgres
+    Function -->|202 and status APIs| Client
+~~~
+
+This configuration is **prepared but not deployed**. Vercel Daemons run with production deployments, not preview deployments, and the Vercel Hobby daemon quota can stop daemons after its monthly Active CPU allowance is exhausted. A public URL, hosted database, hosted Redis instance, and successful Vercel deployment must be verified manually before claiming cloud readiness.
+
 ## Verified performance
 
 ### Methodology
@@ -903,8 +932,8 @@ See [docs/PENDING_TASKS.md](docs/PENDING_TASKS.md) for the complete gap register
 |---|---|---|
 | P2 | Automate live PostgreSQL, Redis, Celery, dispatcher, and lease fault injection in a repeatable Compose suite | **Pending**; manual evidence exists |
 | P3 | Provider-specific HMAC verification after the actual signature contract is available | **Pending**; generic option exists |
-| External | Publish the project to GitHub | **Deferred by scope** |
-| External | Deploy to cloud | **Deferred by scope** |
+| External | Maintain the personal GitHub repository | **Published**; push is a separate final handoff step for this change |
+| External | Deploy to Vercel with external PostgreSQL and Redis | **Pending manual verification** |
 
 Before a real payment launch, provider contract tests, external-side-effect idempotency, secret management, perimeter controls, metrics/alerting, retention policies, and a production capacity plan would still be required. These are not claims of completed production deployment.
 
@@ -913,8 +942,9 @@ Before a real payment launch, provider contract tests, external-side-effect idem
 - [docs/VERIFICATION_REPORT.md](docs/VERIFICATION_REPORT.md) contains date-stamped local evidence.
 - [docs/PENDING_TASKS.md](docs/PENDING_TASKS.md) separates local development gaps from deferred GitHub/cloud work.
 - [docs/deployment.md](docs/deployment.md) is a deployment runbook, not deployment evidence.
+- [docs/VERCEL_DEPLOYMENT_GUIDE.md](docs/VERCEL_DEPLOYMENT_GUIDE.md) contains the Vercel project, provider, environment, migration, daemon, and verification procedure.
 
-The local application is working and the mandatory local processing requirements are satisfied based on the recorded evidence. The remaining items are the automated live-failure harness, provider-specific signature integration, GitHub publication, and cloud deployment.
+The local application is working and the mandatory local processing requirements are satisfied based on the recorded evidence. The remaining items are the automated live-failure harness, provider-specific signature integration, and manual Vercel/provider deployment verification.
 
-No application behavior, database data, infrastructure, Git remote, or Git history was changed by this documentation update.
+No database data, global Git configuration, Git remote, Git history, Vercel project, hosted database, or hosted Redis resource was changed or created by this work. The application changes are limited to Vercel compatibility configuration, connection-pool settings, PostgreSQL URL normalization, and graceful dispatcher shutdown.
 

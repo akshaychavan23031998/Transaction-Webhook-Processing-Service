@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "celery-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile",
+      "command": [
+        "celery",
+        "-A",
+        "app.workers.celery_app:celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "--concurrency=1"
+      ],
+      "instances": {
+        "iad1": 1
+      },
+      "resources": {
+        "requests": {
+          "memory": "1Gi"
+        }
+      },
+      "terminationGracePeriodSeconds": 60
+    },
+    "outbox-dispatcher": {
+      "root": ".",
+      "entrypoint": "Dockerfile",
+      "command": [
+        "python",
+        "-m",
+        "app.workers.dispatcher"
+      ],
+      "instances": {
+        "iad1": 1
+      },
+      "resources": {
+        "requests": {
+          "memory": "1Gi"
+        }
+      },
+      "terminationGracePeriodSeconds": 60
+    }
+  }
+}
