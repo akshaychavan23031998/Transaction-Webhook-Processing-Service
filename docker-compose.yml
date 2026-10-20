@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: transactions
+      POSTGRES_USER: transaction_user
+      POSTGRES_PASSWORD: transaction_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transaction_user -d transactions"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://transaction_user:transaction_password@postgres:5432/transactions
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://transaction_user:transaction_password@postgres:5432/transactions
+      REDIS_URL: redis://redis:6379/0
+      TRANSACTION_PROCESSING_DELAY_SECONDS: ${TRANSACTION_PROCESSING_DELAY_SECONDS:-30}
+      PROCESSING_LEASE_SECONDS: ${PROCESSING_LEASE_SECONDS:-90}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://transaction_user:transaction_password@postgres:5432/transactions
+      REDIS_URL: redis://redis:6379/0
+      TRANSACTION_PROCESSING_DELAY_SECONDS: ${TRANSACTION_PROCESSING_DELAY_SECONDS:-30}
+      PROCESSING_LEASE_SECONDS: ${PROCESSING_LEASE_SECONDS:-90}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: ["celery", "-A", "app.workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=${CELERY_WORKER_CONCURRENCY:-2}"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  dispatcher:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://transaction_user:transaction_password@postgres:5432/transactions
+      REDIS_URL: redis://redis:6379/0
+      OUTBOX_DISPATCH_INTERVAL_SECONDS: ${OUTBOX_DISPATCH_INTERVAL_SECONDS:-2}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-100}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: ["python", "-m", "app.workers.dispatcher"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+

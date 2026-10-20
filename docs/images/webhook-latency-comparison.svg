@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" role="img" aria-labelledby="title desc">
+  <title id="title">Webhook acknowledgement latency comparison</title>
+  <desc id="desc">Average, p95, and p99 latency for 20 and 50 concurrent requests, compared with a 500 millisecond target.</desc>
+  <style>
+    .canvas { fill: #ffffff; }
+    .title { fill: #111827; font: 700 22px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .subtitle, .label, .axis-title, .legend-text { fill: #374151; font: 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .axis-title { font-weight: 600; }
+    .grid { stroke: #d1d5db; stroke-width: 1; }
+    .axis { stroke: #6b7280; stroke-width: 1.5; }
+    .target { stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; }
+    .target-label { fill: #b91c1c; font: 600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .avg { fill: #2563eb; }
+    .p95 { fill: #7c3aed; }
+    .p99 { fill: #059669; }
+    .value { fill: #111827; font: 600 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; text-anchor: middle; }
+    @media (prefers-color-scheme: dark) {
+      .canvas { fill: #111827; }
+      .title, .value { fill: #f9fafb; }
+      .subtitle, .label, .axis-title, .legend-text { fill: #d1d5db; }
+      .grid { stroke: #374151; }
+      .axis { stroke: #9ca3af; }
+      .target-label { fill: #fca5a5; }
+    }
+  </style>
+  <rect class="canvas" width="900" height="500" rx="12"/>
+  <text class="title" x="450" y="34" text-anchor="middle">Webhook acknowledgement latency</text>
+  <text class="subtitle" x="450" y="56" text-anchor="middle">Recorded local benchmark values; lower is better</text>
+
+  <line class="grid" x1="90" y1="390" x2="850" y2="390"/>
+  <line class="grid" x1="90" y1="326" x2="850" y2="326"/>
+  <line class="grid" x1="90" y1="262" x2="850" y2="262"/>
+  <line class="grid" x1="90" y1="198" x2="850" y2="198"/>
+  <line class="grid" x1="90" y1="134" x2="850" y2="134"/>
+  <line class="grid" x1="90" y1="70" x2="850" y2="70"/>
+  <line class="target" x1="90" y1="70" x2="850" y2="70"/>
+  <text class="target-label" x="845" y="62" text-anchor="end">500 ms target</text>
+
+  <line class="axis" x1="90" y1="70" x2="90" y2="390"/>
+  <line class="axis" x1="90" y1="390" x2="850" y2="390"/>
+
+  <text class="label" x="78" y="395" text-anchor="end">0</text>
+  <text class="label" x="78" y="331" text-anchor="end">100</text>
+  <text class="label" x="78" y="267" text-anchor="end">200</text>
+  <text class="label" x="78" y="203" text-anchor="end">300</text>
+  <text class="label" x="78" y="139" text-anchor="end">400</text>
+  <text class="label" x="78" y="75" text-anchor="end">500</text>
+  <text class="axis-title" transform="translate(22 245) rotate(-90)" text-anchor="middle">Latency (milliseconds)</text>
+
+  <rect class="avg" x="170" y="339.98" width="45" height="50.02" rx="3"/>
+  <rect class="p95" x="225" y="334.61" width="45" height="55.39" rx="3"/>
+  <rect class="p99" x="280" y="333.48" width="45" height="56.52" rx="3"/>
+  <text class="value" x="192.5" y="332">78.16</text>
+  <text class="value" x="247.5" y="327">86.54</text>
+  <text class="value" x="302.5" y="326">88.31</text>
+
+  <rect class="avg" x="520" y="327.63" width="45" height="62.37" rx="3"/>
+  <rect class="p95" x="575" y="315.20" width="45" height="74.80" rx="3"/>
+  <rect class="p99" x="630" y="314.28" width="45" height="75.72" rx="3"/>
+  <text class="value" x="542.5" y="320">97.45</text>
+  <text class="value" x="597.5" y="307">116.88</text>
+  <text class="value" x="652.5" y="306">118.31</text>
+
+  <text class="axis-title" x="247.5" y="422" text-anchor="middle">20 concurrent requests</text>
+  <text class="axis-title" x="597.5" y="422" text-anchor="middle">50 concurrent requests</text>
+  <text class="axis-title" x="470" y="458" text-anchor="middle">Workload</text>
+
+  <rect class="avg" x="228" y="474" width="14" height="14" rx="2"/>
+  <text class="legend-text" x="248" y="486">Average</text>
+  <rect class="p95" x="335" y="474" width="14" height="14" rx="2"/>
+  <text class="legend-text" x="355" y="486">p95</text>
+  <rect class="p99" x="400" y="474" width="14" height="14" rx="2"/>
+  <text class="legend-text" x="420" y="486">p99</text>
+</svg>
+
